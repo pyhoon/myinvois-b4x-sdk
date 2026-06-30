@@ -42,7 +42,7 @@ See `B4XMainPage.bas:CreateDocument` for a complete document setup with supplier
 
 ## Note on MyInvoisUtils
 
-This library does not include `MyInvoisUtils.bas` — a separate utility class intended for certificate handling, SHA-256 signing, canonicalization, base64 encoding, and linearization. Some public methods on `MyInvois` (e.g., `GetValue`, `GetValue2`, `GetValues`) are exposed as helpers for `MyInvoisUtils` and similar consumers.
+This library does not include `MyInvoisUtils.bas` — a separate utility class intended for certificate handling, SHA-256 signing, canonicalization, base64 encoding, and linearization. This class depends on some libraries such as JavaObject and Encryption which only supported on B4A and B4J but not for B4i. Some public methods on `MyInvois` (e.g., `GetValue`, `GetValue2`, `GetValues`) are exposed as helpers for `MyInvoisUtils` and similar consumers. 
 
 ## Dependencies
 
