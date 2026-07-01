@@ -37,6 +37,7 @@ Public Sub CreateSampleEInvoiceInXMLFormat
 End Sub
 #End If
 
+#If MYINVOISUTILS
 Public Sub CreateSignedEInvoiceInXMLFormat
 	Dim inv As MyInvois
 	inv.Initialize
@@ -123,6 +124,7 @@ Public Sub CreateSignedEInvoiceInXMLFormat
 	#End If
 	#End If
 End Sub
+#End If
 
 #If MYINVOISUTILS
 Public Sub CreateDocument (Version As String, InvoiceNumber As String, SignData As SignatureData, CertData As CertificateData) As Document
