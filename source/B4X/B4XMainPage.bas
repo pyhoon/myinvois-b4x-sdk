@@ -11,8 +11,6 @@ Version=9.85
 Sub Class_Globals
 	Private xui As XUI
 	Private Root As B4XView
-	Type SignatureData (DocDigestValue As String, PropDigestValue As String, SigDigestValue As String)
-	Type CertificateData (SubjectName As String, IssuerName As String, SerialNumber As String, PrivateKey As String, EncodedValue As String, DigestValue As String)
 End Sub
 
 Public Sub Initialize
@@ -23,72 +21,128 @@ End Sub
 Private Sub B4XPage_Created (Root1 As B4XView)
 	Root = Root1
 	Root.LoadLayout("MainPage")
-
 	B4XPages.SetTitle(Me, "MyInvois B4X SDK")
 End Sub
 
-Private Sub Button1_Click
+Private Sub BtnGenerate_Click
+	#If MYINVOISUTILS
+	CreateSignedEInvoiceInXMLFormat
+	#Else
 	CreateSampleEInvoiceInXMLFormat
+	#End If
+	#If B4J
+	xui.MsgboxAsync("Document generated in Objects folder", "Complete")
+	#Else
+	xui.MsgboxAsync("Document generated in default folder", "Complete")
+	#End If
 End Sub
 
+#If NOT(MYINVOISUTILS)
 Public Sub CreateSampleEInvoiceInXMLFormat
-	' STEP 1 : Create document XML or JSON (no signature elements yet) for a single document
-	' For viewing purpose only
 	Dim inv As MyInvois
 	inv.Initialize
-	Dim InvoiceNumber As String = "XML-INV-1234" 'MyInvoisUtils.CreateRandomInvoiceNumber("XML-INV")
-	Dim data1 As String = inv.GenerateInvoiceXML(CreateDocument("1.1", InvoiceNumber, Null, Null), False)
-	File.WriteString(File.DirApp, "1.1 sample.xml", data1.Trim)
+	Dim InvoiceNumber As String = "XML-INV-1234"
+	' Pretty print for viewing purpose only
+	Dim sample As String = inv.GenerateInvoiceXML(CreateDocument("1.0", InvoiceNumber), False)
+	File.WriteString(File.DirApp, "1.0 sample.xml", sample.Trim)
+	#If DEBUG
+	Log("Output:" & CRLF & sample)
+	#End If
+End Sub
+#End If
+
+Public Sub CreateSignedEInvoiceInXMLFormat
+	Dim inv As MyInvois
+	inv.Initialize
 	
+	' Generate Invoice v1.0
+	Dim InvoiceNumber As String = "XML-INV-1234"
+	' Pretty print for viewing purpose only
+	#If MYINVOISUTILS
+	Dim sample As String = inv.GenerateInvoiceXML(CreateDocument("1.0", InvoiceNumber, Null, Null), False)
+	#Else
+	Dim sample As String = inv.GenerateInvoiceXML(CreateDocument("1.0", InvoiceNumber), False)
+	#End If
+	File.WriteString(File.DirApp, "1.0 sample.xml", sample.Trim)
+	#If DEBUG
+	Log("Output:" & CRLF & sample)
+	#End If
+	
+	' Generate Invoice v1.1
+	#If MYINVOISUTILS
+	'StringUtils for Base64Encode hashing
+	Dim su As StringUtils
+	
+	' STEP 1 : Create document XML or JSON (no signature elements yet) for a single document
+	Dim InvoiceNumber As String = MyInvoisUtils.CreateRandomInvoiceNumber("XML-INV")
+	Dim data1 As String = inv.GenerateInvoiceXML(CreateDocument("1.1", InvoiceNumber, Null, Null), True)
+
 	' STEP 2 : Apply transformations to the document
 	' Remove the not required elements if any exists
-	' (UBLExtension (XPath: [local-name()=׳Invoice׳]//[local-name()=׳UBLExtensions׳]),
-	' and Signature (XPath: [local-name()=׳Invoice׳]//[local-name()=׳Signature׳]))
+	' (UBLExtension (XPath: [local-name()='Invoice']//[local-name()='UBLExtensions']),
+	' and Signature (XPath: [local-name()='Invoice']//[local-name()='Signature'))
 	' Linearization
-	'Dim data2 As String = inv.GenerateInvoiceXML(CreateDocument("1.1", InvoiceNumber, Null, Null), True)
-	'data2 = MyInvoisUtils.LinearizeXML(data2)
-	'Dim data3() As Byte = data2.GetBytes("UTF8")
-	'File.WriteBytes(File.DirApp, "1.1 linearized.xml", data3)
-	
+	Dim data2 As String = MyInvoisUtils.LinearizeXML(data1)
+	#If DEBUG
+	File.WriteString(File.DirApp, "1.1 linearized.xml", data2)
+	'Dim linearized() As Byte = data2.GetBytes("UTF8")
+	'File.WriteBytes(File.DirApp, "1.1 linearized.xml", linearized)
+	#End If
+
 	' STEP 3 : Canonicalize the document and generate the document hash (digest)
 	' Canonicalization
-	'Dim data3() As Byte = inv.Canonicalize(data2, "")
-	''Dim data3() As Byte = inv.Canonicalize2(data2, "")
-	'File.WriteBytes(File.DirApp, "1.1 canonicalized.xml", data3)
-	
+	Dim canonicalized() As Byte = MyInvoisUtils.Canonicalize(data2, "")
 	' STEP 3 : Sign the document digest or generate the document hash (digest) (property reference DocDigest)
-	'Dim su As StringUtils
-	'Dim DocDigestValue As String = su.EncodeBase64(data3)
-	'Log("DocDigest: " & DocDigestValue.SubString2(0, 300))
+	Dim DocDigestValue As String = su.EncodeBase64(canonicalized)
+	#If DEBUG
+	Log("DocDigest: " & DocDigestValue.SubString2(0, 300))
+	File.WriteString(File.DirApp, "1.1 canonicalized.txt", DocDigestValue)
+	'File.WriteBytes(File.DirApp, "1.1 canonicalized.txt", canonicalized)
+	#End If
+	
+	Dim CertData As CertificateData = MyInvoisUtils.GetCertificateData("b4x", "MyPassword", File.Combine(File.DirApp, "computerise.p12"))
 	
 	' STEP 4 : Sign the document digest (property reference Sig)
-	'Dim CertData As CertificateData = MyInvoisUtils.GetCertificateData("b4x", "MyPassword", File.Combine(File.DirApp, "computerise.p12"))
-	'Dim data4() As Byte = MyInvoisUtils.SHA256RSA(data3, CertData.PrivateKey)
-	'Dim SigDigestValue As String = su.EncodeBase64(data4)
-	'Log("SignatureValue: " & SigDigestValue)
+	Dim signed() As Byte = MyInvoisUtils.SHA256RSA(canonicalized, CertData.PrivateKey)
+	Dim SigDigestValue As String = su.EncodeBase64(signed)
+	#If DEBUG
+	Log("SigDigest: " & SigDigestValue)
+	File.WriteString(File.DirApp, "1.1 SigDigest.txt", SigDigestValue)
+	'File.WriteBytes(File.DirApp, "1.1 SigDigest.txt", signed)
+	#End If
 	
-	' STEP 5 : Generate the certificate hash (Digest) (property reference CertDigest)
+	' STEP 5 : Generate the certificate hash (Digest) (property reference PropsDigest)
 	' STEP 6 : Populate the signed properties section
-	' STEP 7 : Generate Signed Properties Hash (Digest) (property reference PropsDigest)
-	'Dim PropsDigest As String = MyInvoisUtils.CreateSignedProperties(CertData.IssuerName, CertData.SerialNumber, MyInvoisUtils.CurrentDateTime, CertData.DigestValue)
-	'PropsDigest = MyInvoisUtils.LinearizeXML(PropsDigest)
-	'File.WriteString(File.DirApp, "1.1 propsdigest.xml", PropsDigest)
-	'Dim PropDigestValue As String = su.EncodeBase64(PropsDigest.GetBytes("UTF8"))
-	'Log("PropsDigest: " & PropDigestValue)
+	Dim data3 As String = MyInvoisUtils.CreateSignedPropertiesXML(CertData.IssuerName, CertData.SerialNumber, MyInvoisUtils.CurrentDateTime, CertData.DigestValue)
+	Dim PropsDigestValue As String = MyInvoisUtils.LinearizeXML(data3)
+	#If DEBUG
+	Log("PropsDigest: " & PropsDigestValue)
+	File.WriteString(File.DirApp, "1.1 PropsDigest.xml", PropsDigestValue)
+	#End If
+	
+	' STEP 7 : Generate Signed Properties Hash (Digest) (property reference CertDigest)
+	Dim CertDigestValue As String = su.EncodeBase64(PropsDigestValue.GetBytes("UTF8"))
+	#If DEBUG
+	Log("CertDigest: " & CertDigestValue)
+	File.WriteString(File.DirApp, "1.1 CertDigest.txt", CertDigestValue)
+	#End If
+	
+	Dim SignData As SignatureData = MyInvoisUtils.GetSignatureData(DocDigestValue, SigDigestValue, CertDigestValue)
 	
 	' STEP 8 : Populate the information in the document to create the signed document
-	'Dim SignData As SignatureData
-	'SignData.Initialize
-	'SignData.DocDigestValue = DocDigestValue
-	'SignData.SigDigestValue = SigDigestValue
-	'SignData.PropDigestValue = PropDigestValue
-	
-	'Dim data5 As String = inv.GenerateInvoiceXML(CreateDocument("1.1", InvoiceNumber, SignData, CertData), True)
-	'File.WriteString(File.DirApp, $"1.1 signed-${InvoiceNumber}.xml"$, data5.Trim)
-	'Log($"File created: 1.1 signed-${InvoiceNumber}.xml"$)
+	Dim signedDocument As String = inv.GenerateInvoiceXML(CreateDocument("1.1", InvoiceNumber, SignData, CertData), True)
+	File.WriteString(File.DirApp, $"1.1 signed-${InvoiceNumber}.xml"$, signedDocument.Trim)
+	#If DEBUG
+	Log($"File created: 1.1 signed-${InvoiceNumber}.xml"$)
+	#End If
+	#End If
 End Sub
 
+#If MYINVOISUTILS
 Public Sub CreateDocument (Version As String, InvoiceNumber As String, SignData As SignatureData, CertData As CertificateData) As Document
+#Else
+Public Sub CreateDocument (Version As String, InvoiceNumber As String) As Document
+#End If
 	Dim doc As Document
 	doc.Initialize
 	doc.name = "Invoice" ' XML Root / JSON Key
@@ -103,6 +157,7 @@ Public Sub CreateDocument (Version As String, InvoiceNumber As String, SignData 
 	
 	doc.invoice.Initialize
 	
+	#If MYINVOISUTILS
 	If Initialized(SignData) And Initialized(CertData) Then
 		Dim UBLExtensions1 As UBLExtensions = doc.invoice.UBLExtensions
 		UBLExtensions1.Initialize
@@ -195,7 +250,7 @@ Public Sub CreateDocument (Version As String, InvoiceNumber As String, SignData 
 		Ref2.DigestMethod.Value = ""
 		Ref2.DigestMethod.Algorithm = "http://www.w3.org/2001/04/xmlenc#sha256"
 		Ref2.DigestValue.Initialize
-		Ref2.DigestValue.Value = SignData.PropDigestValue
+		Ref2.DigestValue.Value = SignData.CertDigestValue
 		SignatureInformation1.Signature.SignedInfo.Reference.List.Add(Ref2)
 		Dim SignatureValue1 As SignatureValue = SignatureInformation1.Signature.SignatureValue
 		SignatureValue1.Initialize
@@ -208,6 +263,7 @@ Public Sub CreateDocument (Version As String, InvoiceNumber As String, SignData 
 		doc.invoice.UBLSignature.SignatureMethod.Initialize
 		doc.invoice.UBLSignature.SignatureMethod.Value = "urn:oasis:names:specification:ubl:dsig:enveloped:xades"
 	End If
+	#End If
 	
 	doc.invoice.ID.Initialize
 	doc.invoice.ID.Value = InvoiceNumber ' "XML-INV12345" / "JSON-INV12345"
