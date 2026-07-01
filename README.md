@@ -1,6 +1,13 @@
+![Version](https://img.shields.io/badge/version-1.00-blue)
+![B4X](https://img.shields.io/badge/B4X-B4J%20%7C%20B4A%20%7C%20B4i-orange)
+![License](https://img.shields.io/badge/license-Apache%202.0-blue)
+[![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal)](https://www.paypal.com/paypalme/aeric80)
+
 # myinvois-b4x-sdk
 
 LHDN MyInvois B4X SDK — generate UBL 2.1 compliant e-invoices in XML and JSON format for Malaysia's MyInvois system. Cross-platform (B4J / B4A / B4i).
+
+If you find this project useful, consider [buying me a coffee](https://www.paypal.com/paypalme/aeric80).
 
 ## Features
 
